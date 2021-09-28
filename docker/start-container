@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+if [ ! -z "$WWWUSER" ]; then
+    usermod -u $WWWUSER sail
+fi
+
+if [ ! -d /.composer ]; then
+    mkdir /.composer
+fi
+
+# remove uploaded .env, instead use variables in your railway project (copy it from .env.railway)
+[ -f "./.env" ] && rm -rf .env && echo ".env deleted!"
+npm install
+composer install
+php artisan migrate
+chmod -R ugo+rw /.composer
+echo "Copy this to your APP_KEY variable: "
+php artisan key:generate --show
+
+if [ ! -z "$PORT" ]; then
+    sed -i -e "s/--port=80/--port=$PORT/g" /etc/supervisor/conf.d/supervisord.conf
+fi
+
+# cat .env | grep -q APP_KEY=base64
+# if [ ! "$?" -eq 0 ]; then
+#     php artisan key:generate
+# fi
+
+if [ $# -gt 0 ];then
+    exec gosu $WWWUSER "$@"
+else
+    /usr/bin/supervisord
+fi
